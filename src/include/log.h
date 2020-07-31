@@ -25,7 +25,7 @@ static const char * LOG_STR[] = {
 
 
 #define SPIDER_LOG(level, format, ...) do{  \
-    if(level > g_conf.log_level){  \
+    if(level >= g_conf.log_level){  \
         time_t now = time(NULL);    \
         char buf[32];   \
         strftime(buf, sizeof(buf), "%Y%m%d %H:%M:%S", localtime(&now));    \

@@ -12,11 +12,11 @@ endif
 
 CFLAGS = -I $(ROOT_DIR)/include
 
-LDFLAGS +=
+LDFLAGS += -pthread -ldl -rdynamic -levent
 
 CC=gcc
 
-SUBDIRS=main config cstring
+SUBDIRS=main config cstring bloomfilter crc32 dso epoll hash threads socket url
 BIN=spider
 
 OBJS_DIR=debug/obj

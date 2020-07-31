@@ -2,7 +2,15 @@
 #define __URL_H__
 
 #include "list.h"
+#include "common.h"
 #include <pthread.h>
+#include <event.h>
+#include <evdns.h>
+#include <regex.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
 
 
 /* 维护url原始字符串 */
@@ -40,13 +48,33 @@ typedef struct queue
 }queue;
 
 
+extern queue surl_queue;
+
+extern queue ourl_queue;
+
 void initUrl();
 
 void * urlparser(void * arg);
 
+int addUrlSeed(char *, int);
 
+char *urlNormalized(char *);
 
+void push_queue(queue *, struct list_head *);
 
+void pop_queue(queue *, struct list_head **);
+
+int is_queue_empty(queue *);
+
+int extract_url(regex_t *, char *, Url *);
+
+char *attach_domain(char *, const char *);
+
+int iscrawled(char *); 
+
+char * url2fn(const Url *);
+
+void free_url(Url *);
 
 
 

@@ -1,8 +1,17 @@
 #include "spider.h"
 #include "log.h"
+#include "cstring.h"
+#include "url.h"
+#include "list.h"
+#include "epoll.h"
+#include "threads.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 
 
@@ -27,9 +36,13 @@ int deamon()
     umask(0);
 
     if( (pid = fork()) < 0 )
-        SPIDER_LOG(SPIDER_LEVEL_ERROR, "deamon() can't fork. errno %d", errno);
+    {
+        SPIDER_LOG(SPIDER_LEVEL_ERROR, "deamon() can't fork. errno: %d", errno);
+    }
     else if(pid != 0)
-        exit(0);
+    {
+         exit(0);
+    }
     
     setsid();
 
@@ -44,7 +57,7 @@ int deamon()
     }
 
     if(g_conf.logfile != NULL && \
-        (fd = open(g_conf->logfile, O_RDWR | O_APPEND | O_CREAT, 0)) != -1)
+        (fd = open(g_conf.logfile, O_RDWR | O_APPEND | O_CREAT, 0)) != -1)
     {
         dup2(fd, STDOUT_FILENO);
         if (fd > STDERR_FILENO)
@@ -94,6 +107,7 @@ initApp(int argc, char *argv[])
         }
     }
 
+
     /* 初始化配置 */
     initConfig(&g_conf);
 
@@ -104,14 +118,43 @@ initApp(int argc, char *argv[])
         SPIDER_LOG(SPIDER_LEVEL_ERROR, "Can't get configfile");
         exit(1);
     }
-
     /* 读取配置文件 */
     loadConfig(configfile);
 
-
-    /* 载入模块 */ 
+    
+    
+    /* 载入模块 */
+    module_init();
+    params *pos, *n;
+    list_for_each_entry_safe(pos, n, &(g_conf.modules.head), head)
+    {
+        dso_load(g_conf.module_path, pos->elem);
+    }
 
     /* 添加爬虫种子*/
+    initUrl();
+    if(g_conf.seeds == NULL)
+    {
+        SPIDER_LOG(SPIDER_LEVEL_ERROR, "pls conf seeds!")
+    }
+    else
+    {
+        int c = 0;
+        int level = 0;
+        char ** splits = cssplitlen(g_conf.seeds, strlen(g_conf.seeds), ",", 1, &c);
+        if(splits == NULL)
+            SPIDER_LOG(SPIDER_LEVEL_ERROR, "Get seeds failed!");
+        while(c--)
+        {
+            if(addUrlSeed(splits[c], level) != 0)
+            {
+                SPIDER_LOG(SPIDER_LEVEL_INFO, "Add the seed failed. [%s]",splits[c]);
+            }
+
+        }
+            
+    }
+    
 
     /* 处理是否以守护进程运行*/
     if( isDeamon ==1 )
@@ -123,20 +166,29 @@ initApp(int argc, char *argv[])
         SPIDER_LOG(SPIDER_LEVEL_ERROR, "Can't get download");
         exit(1);        
     }
-
+    
     chdir(downloadpath);
 
+    SPIDER_LOG(SPIDER_LEVEL_DEBUG, "initapp ok!");
 }
 
 void 
 run()
 {
+    /*  启动DNS解析线程 */
+    int err = -1;
+    if ((err = create_thread(urlparser, NULL, NULL, NULL)) < 0) {
+        SPIDER_LOG(SPIDER_LEVEL_ERROR, "Create urlparser thread fail: %s", strerror(err));
+    }
 
+    /*  启动主流程      */
+    start_epoll_server();
 }
 
 int 
 main(int argc, char *argv[])
 {
+    //SPIDER_LOG(SPIDER_LEVEL_DEBUG,"spider run");
     /* 初始化环境 */
     initApp(argc, argv);
 

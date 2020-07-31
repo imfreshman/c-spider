@@ -8,8 +8,8 @@ struct list_head{
 };
 
 #define LIST_HEAD_INIT(name) {&(name), &(name)}
-#define LIST_HEAD(name) \
-	struct list_head name = {&(name), &(name)};
+/*#define LIST_HEAD(name) \
+	struct list_head name = {&(name), &(name)};*/
 
 //通过member获取结构首地址
 #define offsetof(TYPE, MEMBER) ((size_t)&((TYPE*)0)->MEMBER)

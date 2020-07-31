@@ -15,21 +15,21 @@ init_params_queue(params_queue *p)
     INIT_LIST_HEAD(&p->head);
 }
 
-static void 
+void 
 push_params_queue(params_queue *p, struct list_head *e)
 {
     if(p == NULL || e == NULL)
         return;
     
-    list_add_tail(&p->head, e);
+    list_add_tail(e, &p->head);
     p->bufSize++;
 
 }
 
-static void 
+void 
 pop_params_queue(params_queue *p, struct list_head **e)
 {
-    if(p == NULL || e == NULL)
+    if(p == NULL || *e == NULL)
         return;
     
     if(list_empty(&p->head))
@@ -81,9 +81,8 @@ loadConfigFromString(char *conf)
     int linenum = 0, totlines, i;
     int slaveof_linenum =0;
     char **lines;
-
-    lines = cssplitlen(conf, strlen(conf), "\n", 1, &totlines);
-
+    
+    lines = cssplitlen(conf, strlen(conf), "\n", 1, &totlines);  
     for(i = 0; i < totlines; i++ )
     {
         char **argv;
@@ -97,6 +96,7 @@ loadConfigFromString(char *conf)
         //跳过空白行
         if(lines[i][0] == '#' || lines[i][0] == '\0') continue;
 
+        SPIDER_LOG(SPIDER_LEVEL_DEBUG, "lines:[%s]", lines[i]);
         //将字符串分割成多个参数
         argv = cssplitargs(lines[i], &argc);
         if(argv == NULL)
@@ -104,6 +104,9 @@ loadConfigFromString(char *conf)
             err = "Unbalanced quotes in configuration line";
             goto loaderr; 
         }
+
+        /*for(int j = 0; j < argc; j++)
+            SPIDER_LOG(SPIDER_LEVEL_DEBUG, "argc:[%d] argv:[%s]", j, argv[j]);*/
 
         /* 跳过空白参数 */
         if(argc == 0)
@@ -130,12 +133,12 @@ loadConfigFromString(char *conf)
             } else if (strcasecmp(argv[0], "module_path") == 0) {
                 g_conf.module_path = strdup(argv[1]);
             } else if (strcasecmp(argv[0], "load_module") == 0) {
-                params *p;
+                params *p = NULL;
                 p = malloc(sizeof(struct params));
                 p->elem = strdup(argv[1]);
                 push_params_queue(&g_conf.modules, &p->head);
             } else if (strcasecmp(argv[0], "log_level") == 0) {
-                g_conf.log_level = strdup(argv[1]);
+                g_conf.log_level = atoi(argv[1]);
             } else if (strcasecmp(argv[0], "max_depth") == 0) {
                 g_conf.max_depth = atoi(argv[1]);
             } else if (strcasecmp(argv[0], "stat_interval") == 0) {
@@ -143,10 +146,10 @@ loadConfigFromString(char *conf)
             } else if (strcasecmp(argv[0], "make_hostdir") == 0) {
                 g_conf.make_hostdir = yesnotoi(argv[1]);
             } else if (strcasecmp(argv[0], "accept_types") == 0) {
-                params *p;
+                params *p = NULL;
                 p = malloc(sizeof(struct params));
                 p->elem = strdup(argv[1]);
-                push_params_queue(&g_conf.modules, &p->head);             
+                push_params_queue(&g_conf.accept_types, &p->head);             
             } else {
                 err = "Unknown directive"; 
                 goto loaderr;
@@ -157,8 +160,12 @@ loadConfigFromString(char *conf)
             err = "directive must be 'key=value'"; 
             goto loaderr;
         }
+
+        free(argv);
+        argv = NULL;
     }
     csfreesplitres(lines,totlines);
+
     return ;
 
 loaderr:
@@ -193,6 +200,7 @@ loadConfig(const char *filename)
     }
 
     loadConfigFromString(conf);
+   
     
     csfree(conf);
 }
@@ -207,8 +215,8 @@ int getConfAbsolutePath(char *buf)
 
     if(getcwd(cwd, sizeof(cwd)) == NULL)
         return -1;
-    
-    sprintf(buf, "%s/%s", cwd, DEFAULT_CONFIG_FILE);
 
+    //SPIDER_LOG(SPIDER_LEVEL_DEBUG, "%s",cwd);
+    sprintf(buf, "%s/%s", cwd, DEFAULT_CONFIG_FILE);
     return 0;
 }
